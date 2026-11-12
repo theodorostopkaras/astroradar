@@ -29,6 +29,12 @@ export const SOURCE_LABELS: Record<string, string> = {
   "esa-careers": "ESA research fellowships",
   "dlr-jobs": "DLR (German Aerospace Center)",
   "aas-jobregister": "AAS Job Register (postdocs & fellowships)",
+  "academic-jobs-online": "Academic Jobs Online",
+  "physics-today": "Physics Today Jobs",
+  "nature-careers": "Nature Careers",
+  "science-careers": "Science Careers",
+  "jobs-ac-uk": "jobs.ac.uk",
+  "eas-jobs": "EAS Job Directory",
 };
 
 

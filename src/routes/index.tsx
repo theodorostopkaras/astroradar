@@ -25,11 +25,11 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Astro Postdoc Radar — European astronomy postdoc grants" },
+      { title: "Astro Postdoc Radar — astronomy postdocs & fellowships" },
       {
         name: "description",
         content:
-          "Live listing of European postdoctoral funding calls and positions in astronomy and astrophysics, with deadlines, filters and a saved shortlist.",
+          "Live listing of postdoctoral fellowships, funding calls and positions in astronomy and astrophysics worldwide, with deadlines, filters and a saved shortlist.",
       },
       { property: "og:title", content: "Astro Postdoc Radar" },
       {
@@ -116,16 +116,16 @@ function BrowsePage() {
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 px-3 py-1 text-xs text-primary">
-              <Radar className="h-3.5 w-3.5" /> Auto-scanning European sources
+              <Radar className="h-3.5 w-3.5" /> Auto-scanning sources worldwide
             </span>
             <h1 className="mt-4 text-4xl leading-tight sm:text-5xl">
               <span className="aurora-text">Postdoctoral funding</span> for astronomy
               &amp; astrophysics
             </h1>
             <p className="mt-4 text-sm text-muted-foreground sm:text-base">
-              Open calls from the EU funding portal, plus astronomy and astrophysics postdoc
-              positions from the INSPIRE job database and European observatories — gathered in
-              one place, sorted by deadline.
+              Postdoc positions and fellowships from INSPIRE, Academic Jobs Online, the EAS
+              job directory, jobs.ac.uk, Nature, Science and Physics Today careers, ESO, ESA,
+              plus EU funding calls, all in one place and sorted by deadline.
 
             </p>
           </div>

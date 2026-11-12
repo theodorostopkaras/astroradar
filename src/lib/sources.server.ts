@@ -64,7 +64,9 @@ export function stripHtml(input: string): string {
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, h: string) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d: string) => String.fromCodePoint(Number(d)))
+    .replace(/&apos;/g, "'")
     .replace(/&quot;/g, '"')
     .replace(/\s+/g, " ")
     .trim();
@@ -213,6 +215,7 @@ export async function fetchEuPortal(): Promise<SourceResult> {
 /* ------------------------------------------------------------------ */
 
 type RssItem = {
+  get: (tag: string) => string;
   title: string;
   link: string;
   description: string;
@@ -231,6 +234,7 @@ function parseRssItems(xml: string): RssItem[] {
     };
 
     items.push({
+      get,
       title: get("title"),
       link: get("link"),
       description: get("description"),
@@ -614,8 +618,216 @@ export async function fetchAasJobRegister(): Promise<SourceResult> {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Worldwide job boards                                                */
+/* ------------------------------------------------------------------ */
+
+const UA = { "user-agent": "Mozilla/5.0 (compatible; AstroRadar/1.0)" };
+const POSTDOC_RE = /postdoc|post-doc|fellow|research associate|research scientist|research fellow/i;
+const ASTRO_RE =
+  /astro|cosmolog|galax|exoplanet|planetary|stellar|gravitational|telescope|observator|black hole|dark matter|space science|heliophys|solar/i;
+const regionName = new Intl.DisplayNames(["en"], { type: "region" });
+
+function failed(source: string, e: unknown): SourceResult {
+  return { source, ok: false, message: e instanceof Error ? e.message : "Unknown error", items: [] };
+}
+
+function isoOrNull(value: string): string | null {
+  const t = Date.parse(value);
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+}
+
+/** Academic Jobs Online — RSS of every open ad, with structured ads:* fields. */
+export async function fetchAcademicJobsOnline(): Promise<SourceResult> {
+  const source = "academic-jobs-online";
+  try {
+    const res = await fetch("https://academicjobsonline.org/ajo?joblist-0-0-0-----rss--", {
+      headers: UA,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const items = parseRssItems(await res.text())
+      .filter((it) => {
+        const text = `${it.title} ${it.get("ads:Disciplines")} ${it.get("ads:Dept")} ${it.description}`;
+        return it.link && ASTRO_RE.test(text) && POSTDOC_RE.test(`${it.title} ${it.description}`);
+      })
+      .map<NormalizedItem>((it) => {
+        const code = it.get("ads:Country");
+        const country = code ? (regionName.of(code) ?? code) : null;
+        const city = it.get("ads:City");
+        return {
+          source,
+          external_id: it.get("ads:ID") || it.link,
+          kind: /fellow/i.test(it.title) ? "grant" : "position",
+          title: it.title,
+          organisation: it.get("dc:creator") || it.get("ads:Univ") || null,
+          country,
+          location: [city, country].filter(Boolean).join(", ") || null,
+          summary: it.description.slice(0, 320),
+          description: it.description.slice(0, 4000),
+          url: it.link.replace(/\?rss$/, ""),
+          deadline: isoOrNull(it.get("ads:Deadline")),
+          published_at: isoOrNull(it.get("ads:PostDate")),
+          funding: null,
+          status: "Open",
+          tags: ["AJO", it.get("ads:Disciplines")].filter(Boolean),
+        };
+      });
+    return { source, ok: true, message: null, items };
+  } catch (e) {
+    return failed(source, e);
+  }
+}
+
+/** Madgex job boards (Physics Today, Nature Careers, Science Careers) share one RSS format. */
+const MADGEX_BOARDS = [
+  { source: "physics-today", url: "https://jobs.physicstoday.org/jobsrss/?keywords=astronomy", tag: "Physics Today" },
+  { source: "physics-today", url: "https://jobs.physicstoday.org/jobsrss/?keywords=astrophysics", tag: "Physics Today" },
+  { source: "nature-careers", url: "https://www.nature.com/naturecareers/jobsrss/?keywords=astrophysics", tag: "Nature Careers" },
+  { source: "nature-careers", url: "https://www.nature.com/naturecareers/jobsrss/?keywords=astronomy", tag: "Nature Careers" },
+  { source: "science-careers", url: "https://jobs.sciencecareers.org/jobsrss/?keywords=astrophysics", tag: "Science Careers" },
+  { source: "science-careers", url: "https://jobs.sciencecareers.org/jobsrss/?keywords=astronomy", tag: "Science Careers" },
+];
+
+export async function fetchMadgexBoards(): Promise<SourceResult[]> {
+  const bySource = new Map<string, SourceResult>();
+  await Promise.all(
+    MADGEX_BOARDS.map(async ({ source, url, tag }) => {
+      const result = bySource.get(source) ?? { source, ok: true, message: null, items: [] };
+      bySource.set(source, result);
+      try {
+        const res = await fetch(url, { headers: UA });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        for (const it of parseRssItems(await res.text())) {
+          // Title is "Employer: Job title"
+          const cut = it.title.indexOf(": ");
+          const employer = cut > 0 ? it.title.slice(0, cut).trim() : null;
+          const title = cut > 0 ? it.title.slice(cut + 2).trim() : it.title;
+          if (!it.link || !POSTDOC_RE.test(title)) continue;
+          if (!ASTRO_RE.test(it.title)) continue; // title includes the employer/department
+          const id = it.link.match(/\/job\/(\d+)/)?.[1] ?? it.link;
+          if (result.items.some((x) => x.external_id === id)) continue;
+          result.items.push({
+            source,
+            external_id: id,
+            kind: /fellow/i.test(title) ? "grant" : "position",
+            title,
+            organisation: employer,
+            country: guessCountry(it.description),
+            location: null,
+            summary: it.description.slice(0, 320),
+            description: it.description.slice(0, 4000),
+            url: it.link.split("?")[0] ?? it.link,
+            deadline: null,
+            published_at: isoOrNull(it.pubDate),
+            funding: null,
+            status: "Open",
+            tags: [tag],
+          });
+        }
+      } catch (e) {
+        result.ok = false;
+        result.message = e instanceof Error ? e.message : "Unknown error";
+      }
+    }),
+  );
+  return [...bySource.values()];
+}
+
+/** "30 Nov" (no year) -> next occurrence of that date. */
+function nextDayMonth(value: string): string | null {
+  const now = new Date();
+  const d = new Date(`${value} ${now.getUTCFullYear()} 23:59:00 UTC`);
+  if (Number.isNaN(d.getTime())) return null;
+  if (d.getTime() < now.getTime() - 86_400_000) d.setUTCFullYear(d.getUTCFullYear() + 1);
+  return d.toISOString();
+}
+
+/** jobs.ac.uk — UK academic jobs, parsed from the search results page. */
+export async function fetchJobsAcUk(): Promise<SourceResult> {
+  const source = "jobs-ac-uk";
+  const byId = new Map<string, NormalizedItem>();
+  try {
+    for (const q of ["astrophysics", "astronomy", "cosmology"]) {
+      const res = await fetch(`https://www.jobs.ac.uk/search/?keywords=${q}`, { headers: UA });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blocks = (await res.text()).split('class="j-search-result__result').slice(1);
+      for (const b of blocks) {
+        const link = b.match(/href="(\/job\/([A-Z0-9]+)\/[^"]*)"[^>]*>([\s\S]*?)<\/a>/);
+        if (!link?.[1] || !link[2]) continue;
+        const title = stripHtml(link[3] ?? "");
+        if (!POSTDOC_RE.test(title)) continue;
+        const field = (cls: string) => {
+          const m = b.match(new RegExp(`class="j-search-result__${cls}"[^>]*>([\\s\\S]*?)</div>`));
+          return m?.[1] ? stripHtml(m[1]) : null;
+        };
+        const location = b.match(/Location:\s*([^<]*)/)?.[1]?.trim() || null;
+        const closes = b.match(/date--blue[^>]*>([^<]*)</)?.[1]?.trim() ?? "";
+        byId.set(link[2], {
+          source,
+          external_id: link[2],
+          kind: /fellow/i.test(title) ? "grant" : "position",
+          title,
+          organisation: field("employer"),
+          country: "United Kingdom",
+          location,
+          summary: [field("department"), field("employer"), location].filter(Boolean).join(" · "),
+          description: null,
+          url: `https://www.jobs.ac.uk${link[1]}`,
+          deadline: closes ? nextDayMonth(closes) : null,
+          published_at: null,
+          funding: null,
+          status: "Open",
+          tags: ["jobs.ac.uk"],
+        });
+      }
+    }
+    return { source, ok: true, message: null, items: [...byId.values()] };
+  } catch (e) {
+    return { ...failed(source, e), items: [...byId.values()] };
+  }
+}
+
+/** European Astronomical Society job directory (all astronomy). */
+export async function fetchEasJobs(): Promise<SourceResult> {
+  const source = "eas-jobs";
+  try {
+    const res = await fetch("https://eas.unige.ch/jobs.jsp", { headers: UA });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+    const items: NormalizedItem[] = [];
+    for (const b of html.split('<table class="job"').slice(1)) {
+      const title = stripHtml(b.match(/<td class="title">([\s\S]*?)<\/td>/)?.[1] ?? "");
+      const abstractHtml = b.match(/<td class="abstract"[^>]*>([\s\S]*?)<\/td>/)?.[1] ?? "";
+      const abstract = stripHtml(abstractHtml);
+      const closing = b.match(/Closing date:[\s\S]*?(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
+      if (!title || !POSTDOC_RE.test(`${title} ${abstract}`)) continue;
+      const link = abstractHtml.match(/href="(https?:\/\/[^"]+)"/)?.[1] ?? "https://eas.unige.ch/jobs.jsp";
+      items.push({
+        source,
+        external_id: `${title}|${closing ?? ""}`.slice(0, 200),
+        kind: /fellow/i.test(title) ? "grant" : "position",
+        title,
+        organisation: null,
+        country: guessCountry(`${title} ${abstract}`),
+        location: null,
+        summary: abstract.slice(0, 320),
+        description: abstract.slice(0, 4000),
+        url: link,
+        deadline: closing ? `${closing}T23:59:00Z` : null,
+        published_at: null,
+        funding: null,
+        status: "Open",
+        tags: ["EAS"],
+      });
+    }
+    return { source, ok: true, message: null, items };
+  } catch (e) {
+    return failed(source, e);
+  }
+}
+
 export async function collectAllSources(): Promise<SourceResult[]> {
-  const [eu, inspire, eso, esa, dlr, aas, rest] = await Promise.all([
+  const [eu, inspire, eso, esa, dlr, aas, rest, ajo, madgex, jobsAcUk, eas] = await Promise.all([
     fetchEuPortal(),
     fetchInspireJobs(),
     fetchEsoRecruitment(),
@@ -623,7 +835,11 @@ export async function collectAllSources(): Promise<SourceResult[]> {
     fetchDlrJobs(),
     fetchAasJobRegister(),
     fetchGenericRss(),
+    fetchAcademicJobsOnline(),
+    fetchMadgexBoards(),
+    fetchJobsAcUk(),
+    fetchEasJobs(),
   ]);
-  return [eu, inspire, eso, esa, dlr, aas, ...rest];
+  return [eu, inspire, eso, esa, dlr, aas, ...rest, ajo, ...madgex, jobsAcUk, eas];
 }
 
