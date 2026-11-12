@@ -1,3 +1,0 @@
-{
-  "crons": [{ "path": "/api/public/refresh-opportunities", "schedule": "0 6 * * *" }]
-}

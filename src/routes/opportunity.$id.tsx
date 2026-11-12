@@ -1,17 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink, Star } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DeadlinePill } from "@/components/OpportunityCard";
-import { useAuth } from "@/hooks/useAuth";
-import {
-  fetchFavoriteIds,
-  fetchOpportunity,
-  sourceLabel,
-  toggleFavorite,
-} from "@/lib/opportunities";
+import { useFavorites } from "@/hooks/useFavorites";
+import { fetchOpportunity, sourceLabel } from "@/lib/opportunities";
 
 export const Route = createFileRoute("/opportunity/$id")({
   head: () => ({
@@ -34,28 +28,17 @@ export const Route = createFileRoute("/opportunity/$id")({
 
 function DetailPage() {
   const { id } = Route.useParams();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const { favorites, toggle } = useFavorites();
 
   const { data: item, isLoading } = useQuery({
     queryKey: ["opportunity", id],
     queryFn: () => fetchOpportunity(id),
   });
-  const { data: favorites = [] } = useQuery({
-    queryKey: ["favorites", user?.id],
-    queryFn: () => fetchFavoriteIds(user!.id),
-    enabled: !!user,
-  });
 
   const saved = !!item && favorites.includes(item.id);
 
-  async function onSave() {
-    if (!user || !item) {
-      toast("Sign in to save this to your shortlist.");
-      return;
-    }
-    await toggleFavorite(user.id, item.id, !saved);
-    queryClient.invalidateQueries({ queryKey: ["favorites", user.id] });
+  function onSave() {
+    if (item) toggle(item.id, !saved);
   }
 
   return (

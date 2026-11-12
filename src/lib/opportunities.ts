@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { getOpportunities } from "./opportunities.functions";
 
 export type Opportunity = {
   id: string;
@@ -95,48 +95,36 @@ export function isExpired(deadline: string | null): boolean {
 }
 
 export async function fetchOpportunities(): Promise<Opportunity[]> {
-  const { data, error } = await supabase
-    .from("opportunities")
-    .select("*")
-    .order("deadline", { ascending: true, nullsFirst: false })
-    .limit(500);
-  if (error) throw new Error(error.message);
-  return ((data ?? []) as Opportunity[]).filter((i) => !isExpired(i.deadline));
+  const { ranAt, items } = await getOpportunities();
+  return items
+    .map((i) => ({ ...i, id: `${i.source}:${i.external_id}`, created_at: ranAt, updated_at: ranAt }))
+    .filter((i) => !isExpired(i.deadline));
 }
 
 export async function fetchOpportunity(id: string): Promise<Opportunity | null> {
-  const { data, error } = await supabase
-    .from("opportunities")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data as Opportunity) ?? null;
+  return (await fetchOpportunities()).find((i) => i.id === id) ?? null;
 }
 
-export async function fetchFavoriteIds(userId: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from("favorites")
-    .select("opportunity_id")
-    .eq("user_id", userId);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => row.opportunity_id as string);
-}
+// Shortlist lives in this browser only (no accounts).
+const FAV_KEY = "astroradar:favorites";
 
-export async function toggleFavorite(userId: string, opportunityId: string, on: boolean) {
-  if (on) {
-    const { error } = await supabase
-      .from("favorites")
-      .insert({ user_id: userId, opportunity_id: opportunityId });
-    if (error && !error.message.includes("duplicate")) throw new Error(error.message);
-  } else {
-    const { error } = await supabase
-      .from("favorites")
-      .delete()
-      .eq("user_id", userId)
-      .eq("opportunity_id", opportunityId);
-    if (error) throw new Error(error.message);
+export function getFavoriteIds(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(FAV_KEY) ?? "[]") as string[];
+  } catch {
+    return [];
   }
+}
+
+export function setFavorite(id: string, on: boolean): string[] {
+  const next = getFavoriteIds().filter((f) => f !== id);
+  if (on) next.push(id);
+  try {
+    localStorage.setItem(FAV_KEY, JSON.stringify(next));
+  } catch {
+    /* storage blocked: shortlist just won't persist */
+  }
+  return next;
 }
 
 export function daysUntil(deadline: string | null): number | null {

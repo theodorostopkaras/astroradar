@@ -10,19 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as SavedRouteImport } from './routes/saved'
 import { Route as OpportunityIdRouteImport } from './routes/opportunity.$id'
-import { Route as ApiPublicRefreshOpportunitiesRouteImport } from './routes/api/public/refresh-opportunities'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SavedRoute = SavedRouteImport.update({
@@ -35,65 +28,35 @@ const OpportunityIdRoute = OpportunityIdRouteImport.update({
   path: '/opportunity/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicRefreshOpportunitiesRoute =
-  ApiPublicRefreshOpportunitiesRouteImport.update({
-    id: '/api/public/refresh-opportunities',
-    path: '/api/public/refresh-opportunities',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/saved': typeof SavedRoute
   '/opportunity/$id': typeof OpportunityIdRoute
-  '/api/public/refresh-opportunities': typeof ApiPublicRefreshOpportunitiesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/saved': typeof SavedRoute
   '/opportunity/$id': typeof OpportunityIdRoute
-  '/api/public/refresh-opportunities': typeof ApiPublicRefreshOpportunitiesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/saved': typeof SavedRoute
   '/opportunity/$id': typeof OpportunityIdRoute
-  '/api/public/refresh-opportunities': typeof ApiPublicRefreshOpportunitiesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/auth'
-    | '/saved'
-    | '/opportunity/$id'
-    | '/api/public/refresh-opportunities'
+  fullPaths: '/' | '/saved' | '/opportunity/$id'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/auth'
-    | '/saved'
-    | '/opportunity/$id'
-    | '/api/public/refresh-opportunities'
-  id:
-    | '__root__'
-    | '/'
-    | '/auth'
-    | '/saved'
-    | '/opportunity/$id'
-    | '/api/public/refresh-opportunities'
+  to: '/' | '/saved' | '/opportunity/$id'
+  id: '__root__' | '/' | '/saved' | '/opportunity/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AuthRoute: typeof AuthRoute
   SavedRoute: typeof SavedRoute
   OpportunityIdRoute: typeof OpportunityIdRoute
-  ApiPublicRefreshOpportunitiesRoute: typeof ApiPublicRefreshOpportunitiesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -103,13 +66,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/saved': {
@@ -126,22 +82,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OpportunityIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/refresh-opportunities': {
-      id: '/api/public/refresh-opportunities'
-      path: '/api/public/refresh-opportunities'
-      fullPath: '/api/public/refresh-opportunities'
-      preLoaderRoute: typeof ApiPublicRefreshOpportunitiesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AuthRoute: AuthRoute,
   SavedRoute: SavedRoute,
   OpportunityIdRoute: OpportunityIdRoute,
-  ApiPublicRefreshOpportunitiesRoute: ApiPublicRefreshOpportunitiesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

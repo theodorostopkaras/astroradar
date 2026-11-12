@@ -11,8 +11,6 @@ import type { ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 
 
 function NotFoundComponent() {
@@ -37,7 +35,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
   console.error(error);
   const router = useRouter();
 
@@ -124,7 +122,6 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function SiteHeader() {
-  const { user } = useAuth();
   return (
     <header className="relative z-20 border-b border-border/60 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
@@ -142,18 +139,6 @@ function SiteHeader() {
           >
             Shortlist
           </Link>
-          {user ? (
-            <button
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => supabase.auth.signOut()}
-            >
-              Sign out
-            </button>
-          ) : (
-            <Link to="/auth" className="hover:text-primary">
-              Sign in
-            </Link>
-          )}
         </nav>
       </div>
     </header>

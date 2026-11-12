@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Radar, Search, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,17 +13,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { OpportunityCard } from "@/components/OpportunityCard";
-import { useAuth } from "@/hooks/useAuth";
+import { useFavorites } from "@/hooks/useFavorites";
 import {
   daysUntil,
-  fetchFavoriteIds,
   fetchOpportunities,
   researchField,
   sourceLabel,
-  toggleFavorite,
   type Opportunity,
 } from "@/lib/opportunities";
-import { refreshOpportunities } from "@/lib/opportunities.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -47,10 +43,7 @@ export const Route = createFileRoute("/")({
 });
 
 function BrowsePage() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const refresh = useServerFn(refreshOpportunities);
-  const [refreshing, setRefreshing] = useState(false);
+  const { favorites, toggle } = useFavorites();
 
   const [q, setQ] = useState("");
   const [kind, setKind] = useState("all");
@@ -59,15 +52,9 @@ function BrowsePage() {
   const [field, setField] = useState("all");
   const [sort, setSort] = useState("deadline");
 
-  const { data: items = [], isLoading } = useQuery({
+  const { data: items = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ["opportunities"],
     queryFn: fetchOpportunities,
-  });
-
-  const { data: favorites = [] } = useQuery({
-    queryKey: ["favorites", user?.id],
-    queryFn: () => fetchFavoriteIds(user!.id),
-    enabled: !!user,
   });
 
   const countries = useMemo(
@@ -117,39 +104,10 @@ function BrowsePage() {
     [items],
   );
 
-  async function onToggleSave(item: Opportunity) {
-    if (!user) {
-      toast("Sign in to save opportunities to your shortlist.");
-      return;
-    }
+  function onToggleSave(item: Opportunity) {
     const on = !favorites.includes(item.id);
-    await toggleFavorite(user.id, item.id, on);
-    queryClient.invalidateQueries({ queryKey: ["favorites", user.id] });
+    toggle(item.id, on);
     toast.success(on ? "Saved to your shortlist" : "Removed from your shortlist");
-  }
-
-  async function onRefresh() {
-    setRefreshing(true);
-    try {
-      const summary = await refresh({ data: undefined });
-      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
-      if (summary.skipped) {
-        toast.success(
-          `Already up to date — last scan ${new Date(summary.ranAt).toLocaleTimeString()}. Sources are checked every 30 minutes.`,
-        );
-      } else {
-        const failed = summary.sources.filter((s) => !s.ok).map((s) => sourceLabel(s.source));
-        toast.success(
-          `Scan complete — ${summary.total} listings collected${
-            failed.length ? `. Unavailable: ${failed.join(", ")}` : ""
-          }`,
-        );
-      }
-    } catch {
-      toast.error("The scan could not finish. Try again in a moment.");
-    } finally {
-      setRefreshing(false);
-    }
   }
 
   return (
@@ -172,9 +130,9 @@ function BrowsePage() {
             </p>
           </div>
           <div className="flex flex-col items-end gap-3">
-            <Button onClick={onRefresh} disabled={refreshing}>
-              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-              {refreshing ? "Scanning…" : "Scan for new listings"}
+            <Button onClick={() => refetch()} disabled={isFetching}>
+              <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+              {isFetching ? "Scanning…" : "Scan for new listings"}
             </Button>
             <div className="text-right text-xs text-muted-foreground">
               <div>{items.length} listings tracked</div>
