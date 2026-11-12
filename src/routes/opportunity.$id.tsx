@@ -42,7 +42,7 @@ function DetailPage() {
   }
 
   return (
-    <div className="relative z-10 mx-auto max-w-3xl px-4 pb-24 pt-10">
+    <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-24 pt-10">
       <Link
         to="/"
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"

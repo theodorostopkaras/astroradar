@@ -40,7 +40,7 @@ function SavedPage() {
   }
 
   return (
-    <div className="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-10">
+    <div className="relative z-10 mx-auto max-w-[96rem] px-4 sm:px-6 lg:px-8 pb-24 pt-10">
       <h1 className="text-3xl">Your shortlist</h1>
 
       {isLoading ? (
@@ -55,7 +55,7 @@ function SavedPage() {
           </Button>
         </div>
       ) : (
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {saved.map((item) => (
             <OpportunityCard key={item.id} item={item} saved onToggleSave={onToggleSave} />
           ))}

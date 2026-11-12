@@ -124,7 +124,7 @@ function RootShell({ children }: { children: ReactNode }) {
 function SiteHeader() {
   return (
     <header className="relative z-20 border-b border-border/60 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
+      <div className="mx-auto flex max-w-[96rem] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 py-4">
         <Link to="/" className="font-display text-lg tracking-tight">
           Astro<span className="aurora-text">Postdoc</span>Radar
         </Link>

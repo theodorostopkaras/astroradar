@@ -111,7 +111,7 @@ function BrowsePage() {
   }
 
   return (
-    <div className="relative z-10 mx-auto max-w-6xl px-4 pb-24 pt-10">
+    <div className="relative z-10 mx-auto max-w-[96rem] px-4 sm:px-6 lg:px-8 pb-24 pt-10">
       <header className="panel overflow-hidden p-8">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-2xl">
@@ -221,7 +221,7 @@ function BrowsePage() {
           </p>
         </div>
       ) : (
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((item) => (
             <OpportunityCard
               key={item.id}
